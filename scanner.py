@@ -20,19 +20,16 @@ def get_signal_coins():
                 change = float(item.get("priceChangePercent", 0))
                 last_price = float(item.get("lastPrice", 0))
 
-                if change > 5:
-
+                # ✅ Standard 1% threshold
+                if change > 1:
                     entry = last_price
                     sl = entry * 0.98
                     tp1 = entry * 1.02
                     tp2 = entry * 1.04
                     tp3 = entry * 1.06
-
                     trade_type = "LONG"
-                    confidence = int(change * 2)
-
+                    confidence = int(change * 10)
                     coin = symbol.replace("USDT", "")
-
                     signals.append({
                         "coin": coin,
                         "entry": entry,
@@ -44,19 +41,15 @@ def get_signal_coins():
                         "confidence": confidence
                     })
 
-                elif change < -5:
-
+                elif change < -1:
                     entry = last_price
                     sl = entry * 1.02
                     tp1 = entry * 0.98
                     tp2 = entry * 0.96
                     tp3 = entry * 0.94
-
                     trade_type = "SHORT"
-                    confidence = int(-change * 2)
-
+                    confidence = int(-change * 10)
                     coin = symbol.replace("USDT", "")
-
                     signals.append({
                         "coin": coin,
                         "entry": entry,
@@ -69,7 +62,6 @@ def get_signal_coins():
                     })
 
         print("Detected signals:", [s["coin"] for s in signals])
-
         return signals
 
     except Exception as e:
