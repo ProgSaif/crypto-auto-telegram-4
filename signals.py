@@ -1,39 +1,46 @@
 import pandas as pd
 import numpy as np
 import requests
+import time
 
-# ===== Parameters (must be defined first!) =====
+# ===== PARAMETERS =====
 EMA_FAST = 9
 EMA_SLOW = 21
 RSI_PERIOD = 14
 
 PRICE_MOVE_THRESHOLD = 0.005        # 0.5% price move
-VOLUME_MULTIPLIER = 1.5             # 1.5× average volume spike
+VOLUME_MULTIPLIER = 1.0             # 1x average volume spike for realistic detection
 RSI_LONG_MAX = 55                    # LONG only if RSI < 55
 RSI_SHORT_MIN = 45                   # SHORT only if RSI > 45
-CONFIDENCE_THRESHOLD = 50
+CONFIDENCE_THRESHOLD = 10
 MIN_DAILY_VOLUME = 2000              # minimum quote volume in USDT
 ATR_MULTIPLIER = 1.5
 
-# ===== Helper Functions =====
-def get_klines(symbol, interval="5m", limit=100):
+# ===== GET KLINES WITH RETRY =====
+def get_klines(symbol, interval="5m", limit=200, retries=3):
     url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}"
-    try:
-        resp = requests.get(url, timeout=10)
-        data = resp.json()
-        df = pd.DataFrame(data, columns=[
-            "open_time","open","high","low","close",
-            "volume","close_time","quote_asset_volume",
-            "trades","taker_base","taker_quote","ignore"
-        ])
-        df[["open","high","low","close","volume"]] = df[["open","high","low","close","volume"]].astype(float)
-        return df
-    except Exception as e:
-        print(f"Failed to fetch klines for {symbol}: {e}")
-        return None
+    for attempt in range(retries):
+        try:
+            resp = requests.get(url, timeout=10)
+            data = resp.json()
+            if not isinstance(data, list) or len(data) == 0:
+                raise ValueError("Empty or invalid response")
+            df = pd.DataFrame(data, columns=[
+                "open_time","open","high","low","close",
+                "volume","close_time","quote_asset_volume",
+                "trades","taker_base","taker_quote","ignore"
+            ])
+            df[["open","high","low","close","volume"]] = df[["open","high","low","close","volume"]].astype(float)
+            return df
+        except Exception as e:
+            print(f"Attempt {attempt+1} failed for {symbol}: {e}")
+            time.sleep(2)
+    print(f"Failed to fetch klines for {symbol} after {retries} retries")
+    return None
 
+# ===== RSI =====
 def calculate_rsi(df, period=RSI_PERIOD):
-    if df is None or df.empty:
+    if df is None or df.empty or len(df) < period:
         return None
     delta = df["close"].diff()
     gain = np.where(delta>0, delta, 0)
@@ -44,8 +51,9 @@ def calculate_rsi(df, period=RSI_PERIOD):
     rsi = 100 - (100 / (1 + rs))
     return rsi.iloc[-1] if not rsi.empty else None
 
+# ===== EMA TREND =====
 def calculate_ema_trend(df, fast=EMA_FAST, slow=EMA_SLOW):
-    if df is None or df.empty:
+    if df is None or df.empty or len(df) < max(fast, slow):
         return None
     ema_fast = df["close"].ewm(span=fast, adjust=False).mean()
     ema_slow = df["close"].ewm(span=slow, adjust=False).mean()
@@ -56,8 +64,9 @@ def calculate_ema_trend(df, fast=EMA_FAST, slow=EMA_SLOW):
     else:
         return "flat"
 
+# ===== ATR =====
 def calculate_atr(df, period=14):
-    if df is None or df.empty:
+    if df is None or df.empty or len(df) < period:
         return None
     high_low = df["high"] - df["low"]
     high_close = np.abs(df["high"] - df["close"].shift())
@@ -66,6 +75,7 @@ def calculate_atr(df, period=14):
     atr = tr.rolling(period).mean()
     return atr.iloc[-1] if not atr.empty else None
 
+# ===== VOLUME SPIKE =====
 def detect_volume_spike(df, multiplier=VOLUME_MULTIPLIER):
     if df is None or df.empty:
         return False
@@ -75,9 +85,10 @@ def detect_volume_spike(df, multiplier=VOLUME_MULTIPLIER):
         return False
     return current_volume > (avg_volume.iloc[-1] * multiplier)
 
-# ===== Main Signal Function =====
+# ===== CALCULATE SIGNAL =====
 def calculate_signal(symbol, last_price, change_pct, df, daily_volume, df_higher_tf=None):
-    if daily_volume < MIN_DAILY_VOLUME:
+    if df is None or df.empty or daily_volume < MIN_DAILY_VOLUME:
+        print(f"{symbol} skipped: insufficient data or low volume ({daily_volume})")
         return None
 
     rsi = calculate_rsi(df)
@@ -85,7 +96,7 @@ def calculate_signal(symbol, last_price, change_pct, df, daily_volume, df_higher
     vol_spike = detect_volume_spike(df)
     atr = calculate_atr(df)
 
-    # 🔹 Debug print
+    # Debug print
     print(f"{symbol} -> RSI: {rsi}, Trend: {ema_trend_val}, Volume Spike: {vol_spike}, Change: {change_pct:.4f}, Volume: {daily_volume}")
 
     # Signal logic
