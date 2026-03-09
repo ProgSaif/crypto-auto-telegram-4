@@ -1,16 +1,21 @@
 import requests
 
 def get_movers():
+
     url = "https://data-api.binance.vision/api/v3/ticker/24hr"
 
-
     try:
-        response = requests.get(url, timeout=10)
+
+        response = requests.get(
+            url,
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=10
+        )
+
         data = response.json()
 
         coins = []
 
-        # make sure data is a list
         if not isinstance(data, list):
             print("Unexpected Binance response:", data)
             return []
@@ -28,9 +33,12 @@ def get_movers():
                     coin = symbol.replace("USDT", "")
                     coins.append(coin)
 
+        print("Detected movers:", coins)
+
         return coins
 
     except Exception as e:
 
         print("Scanner error:", e)
+
         return []
