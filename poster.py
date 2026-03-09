@@ -4,6 +4,7 @@ def generate_signal_message(coin, entry, sl, tp1, tp2, tp3, trade_type="LONG", c
 
     message = f"""
 Traders are watching the majors… but ${coin} just flashed momentum.
+
 ${coin} — {trade_type}
 
 Entry: {entry_low:.4f} – {entry_high:.4f}
