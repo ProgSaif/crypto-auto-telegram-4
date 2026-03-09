@@ -1,76 +1,84 @@
 import requests
-import pandas as pd
-from ta.momentum import RSIIndicator
-from ta.trend import EMAIndicator
-from signals import calculate_signal
 import time
 
-def get_all_usdt_symbols():
-    url = "https://api.binance.com/api/v3/ticker/24hr"
-    try:
-        resp = requests.get(url, timeout=10)
-        data = resp.json()
+BASE_URL = "https://api.binance.us/api/v3"
 
-        if not isinstance(data, list):
-            print("Unexpected response from Binance API:", data)
-            return []
+# Get all USDT pairs
+def get_symbols():
+    url = f"{BASE_URL}/exchangeInfo"
+    r = requests.get(url)
 
-        symbols = [item['symbol'] for item in data if item['symbol'].endswith("USDT")]
-        return symbols
+    data = r.json()
 
-    except Exception as e:
-        print("Failed to fetch all symbols:", e)
+    if "symbols" not in data:
+        print("Unexpected response from Binance:", data)
         return []
 
-def get_klines(symbol, interval="1m", limit=50):
-    url = "https://api.binance.com/api/v3/klines"
-    params = {"symbol": symbol, "interval": interval, "limit": limit}
-    try:
-        data = requests.get(url, params=params, timeout=10).json()
-        df = pd.DataFrame(data, columns=[
-            "OpenTime","Open","High","Low","Close","Volume",
-            "CloseTime","QuoteAssetVolume","NumberOfTrades",
-            "TakerBuyBase","TakerBuyQuote","Ignore"
-        ])
-        df["Close"] = df["Close"].astype(float)
-        df["Volume"] = df["Volume"].astype(float)
-        df.index = pd.to_datetime(df["OpenTime"], unit='ms')
-        return df
-    except Exception as e:
-        print(f"Klines fetch error {symbol}: {e}")
-        return pd.DataFrame()
+    symbols = [s["symbol"] for s in data["symbols"] if s["quoteAsset"] == "USDT" and s["status"] == "TRADING"]
 
-def detect_signals():
-    signals = []
-    symbols = get_all_usdt_symbols()
-    if not symbols:
-        print("No symbols fetched, skipping scan.")
-        return []
+    return symbols
 
-    print(f"Scanning {len(symbols)} USDT pairs...")
 
-    for symbol in symbols:
-        df = get_klines(symbol)
-        if df.empty or len(df) < 20:
+# Get klines
+def get_klines(symbol, interval="5m", limit=50):
+    url = f"{BASE_URL}/klines"
+    params = {
+        "symbol": symbol,
+        "interval": interval,
+        "limit": limit
+    }
+
+    r = requests.get(url, params=params)
+
+    return r.json()
+
+
+# Simple breakout strategy
+def check_signal(symbol):
+
+    klines = get_klines(symbol)
+
+    if not klines or isinstance(klines, dict):
+        return
+
+    closes = [float(k[4]) for k in klines]
+
+    last = closes[-1]
+    prev = closes[-2]
+
+    change = ((last - prev) / prev) * 100
+
+    if change > 2:
+        print(f"🚀 {symbol} PUMPING +{change:.2f}%")
+
+    elif change < -2:
+        print(f"🔻 {symbol} DUMPING {change:.2f}%")
+
+
+def run_scanner():
+
+    while True:
+
+        symbols = get_symbols()
+
+        if not symbols:
+            print("No symbols fetched, skipping scan.")
+            time.sleep(10)
             continue
 
-        rsi = RSIIndicator(df['Close'], window=14).rsi().iloc[-1]
-        ema20 = EMAIndicator(df['Close'], window=20).ema_indicator().iloc[-1]
-        ema50 = EMAIndicator(df['Close'], window=50).ema_indicator().iloc[-1]
-        ema_trend = "Bullish" if ema20 > ema50 else "Bearish"
+        print(f"Scanning {len(symbols)} USDT pairs...")
 
-        avg_vol = df['Volume'].rolling(20).mean().iloc[-1]
-        vol_spike = df['Volume'].iloc[-1] > avg_vol * 1.5
+        for symbol in symbols:
 
-        change_pct = (df['Close'].iloc[-1] - df['Close'].iloc[-2]) / df['Close'].iloc[-2]
-        last_price = df['Close'].iloc[-1]
+            try:
+                check_signal(symbol)
+                time.sleep(0.1)
 
-        signal = calculate_signal(symbol, last_price, change_pct, rsi, ema_trend, vol_spike)
-        if signal:
-            signals.append(signal)
+            except Exception as e:
+                print("Error:", e)
 
-        print(f"{symbol}: price={last_price:.4f}, change={change_pct:.5f}, RSI={rsi:.2f}, EMA={ema_trend}, VolSpike={vol_spike}")
+        print("Scan complete. Waiting 60s...\n")
+        time.sleep(60)
 
-        time.sleep(0.2)
 
-    return signals
+run_scanner()
