@@ -13,7 +13,7 @@ if not os.path.exists("charts"):
     os.makedirs("charts")
 
 TOP_SYMBOLS = ["BTCUSDT","ETHUSDT","BNBUSDT","XRPUSDT","SOLUSDT",
-               "ADAUSDT","MATICUSDT","DOGEUSDT","LTCUSDT","DOTUSDT"]
+               "ADAUSDT","MATICUSDT","DOGEUSDT","LTCUSDT","DOTUSDT","OPNUSDT","ROBOUSDT"]
 
 def get_klines(symbol, interval="1m", limit=50):
     url = f"https://api.binance.com/api/v3/klines"
