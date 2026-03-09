@@ -18,7 +18,7 @@ Why this setup?
 • Momentum aligns with recent price breakout
 • Suitable for intraday swing trading
 • Risk/reward ratio favorable for calculated entries
-• Coin is actively traded with sufficient liquidity
+• ${coin} is actively traded with sufficient liquidity
 
 Please like and comment your PNL
 — Follow for more updates —
