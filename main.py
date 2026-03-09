@@ -26,7 +26,6 @@ async def send_message_safe(message, chart=None):
 async def run_bot():
     while True:
         signals = detect_signals()
-
         for s in signals:
             key = f"{s['coin']}_{s['trade_type']}"
             if key not in posted:
