@@ -4,20 +4,33 @@ def get_movers():
 
     url = "https://api.binance.com/api/v3/ticker/24hr"
 
-    data = requests.get(url).json()
+    try:
+        response = requests.get(url, timeout=10)
+        data = response.json()
 
-    coins = []
+        coins = []
 
-    for item in data:
+        # make sure data is a list
+        if not isinstance(data, list):
+            print("Unexpected Binance response:", data)
+            return []
 
-        symbol = item["symbol"]
+        for item in data:
 
-        if "USDT" in symbol:
+            symbol = item.get("symbol", "")
 
-            change = float(item["priceChangePercent"])
+            if symbol.endswith("USDT"):
 
-            if change > 5:
-                coin = symbol.replace("USDT","")
-                coins.append(coin)
+                change = float(item.get("priceChangePercent", 0))
 
-    return coins
+                if change > 5:
+
+                    coin = symbol.replace("USDT", "")
+                    coins.append(coin)
+
+        return coins
+
+    except Exception as e:
+
+        print("Scanner error:", e)
+        return []
