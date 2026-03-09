@@ -47,7 +47,7 @@ def calculate_signal(symbol):
     last_price = df["close"].iloc[-1]
 
     # High-quality filter thresholds
-    if rsi < 35 and ema_fast > ema_slow and volume_spike:
+    if rsi < 40 and ema_fast > ema_slow and volume_spike:
         trade_type = "LONG"
     elif rsi > 65 and ema_fast < ema_slow and volume_spike:
         trade_type = "SHORT"
