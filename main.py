@@ -12,6 +12,29 @@ bot = Bot(token=BOT_TOKEN)
 posted = set()
 
 
+async def send_message_safe(message):
+
+    for i in range(3):
+
+        try:
+
+            await bot.send_message(
+                chat_id=CHANNEL_ID,
+                text=message,
+                read_timeout=30,
+                write_timeout=30,
+                connect_timeout=30
+            )
+
+            return
+
+        except Exception as e:
+
+            print("Telegram error:", e)
+
+            await asyncio.sleep(5)
+
+
 async def run_bot():
 
     while True:
@@ -24,12 +47,13 @@ async def run_bot():
 
                 message = generate_post(coin)
 
-                await bot.send_message(
-                    chat_id=CHANNEL_ID,
-                    text=message
-                )
+                print("Posting:", coin)
+
+                await send_message_safe(message)
 
                 posted.add(coin)
+
+                await asyncio.sleep(3)
 
         await asyncio.sleep(300)
 
