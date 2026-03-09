@@ -23,7 +23,6 @@ async def send_message_safe(message):
         except Exception as e:
             print("Telegram error:", e)
 
-            # Handle flood control
             if "Retry in" in str(e):
                 try:
                     wait = int(str(e).split("Retry in ")[1].split(" ")[0])
@@ -37,17 +36,19 @@ async def send_message_safe(message):
                 await asyncio.sleep(5)
 
 async def run_bot():
+
     print("🚀 Signal bot started")
 
     while True:
         try:
-            # Limit signals to avoid Telegram flood
-            signals = get_signal_coins()[:5]
+            signals = get_signal_coins()[:5]  # limit signals per scan
 
             for s in signals:
+
                 key = f"{s['coin']}_{s['trade_type']}"
 
                 if key not in posted:
+
                     message = generate_signal_message(
                         s["coin"],
                         s["entry"],
@@ -65,13 +66,11 @@ async def run_bot():
 
                     posted.add(key)
 
-                    # Delay between messages to prevent flood
-                    await asyncio.sleep(10)
+                    await asyncio.sleep(10)  # delay between messages
 
         except Exception as e:
             print("Bot error:", e)
 
-        # Wait before next scan
         await asyncio.sleep(30)
 
 asyncio.run(run_bot())
