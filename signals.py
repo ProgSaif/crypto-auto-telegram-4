@@ -49,7 +49,7 @@ def calculate_signal(symbol):
     # High-quality filter thresholds
     if rsi < 40 and ema_fast > ema_slow and volume_spike:
         trade_type = "LONG"
-    elif rsi > 65 and ema_fast < ema_slow and volume_spike:
+    elif rsi > 60 and ema_fast < ema_slow and volume_spike:
         trade_type = "SHORT"
     else:
         return None
