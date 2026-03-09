@@ -1,19 +1,20 @@
-def generate_signal_message(coin, entry, sl, tp1, tp2, tp3, trade_type="LONG", confidence=85):
+def generate_signal_message(coin, entry, sl, tp1, tp2, tp3, trade_type, confidence):
+
     return f"""
 💹 ${coin} – {trade_type}
 
-Entry: {entry:.8f}
-SL: {sl:.8f}
-TP1: {tp1:.8f}
-TP2: {tp2:.7f}
+Entry: {entry:.6f}
+SL: {sl:.6f}
+
+TP1: {tp1:.6f}
+TP2: {tp2:.6f}
 TP3: {tp3:.6f}
 
 Why this setup?
 • Confidence: {confidence}%
-• Strong trend on 1H chart
+• RSI + EMA trend + Volume spike
 
-Please like and comment your PNL
-— Follow for more updates —
-DYOR 
+DYOR
+
 #{coin}
 """
