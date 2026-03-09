@@ -1,17 +1,18 @@
 import pandas as pd
 import numpy as np
+import requests
 
 # ===== Parameters =====
 EMA_FAST = 9
 EMA_SLOW = 21
 RSI_PERIOD = 14
 
-PRICE_MOVE_THRESHOLD = 0.005
-VOLUME_MULTIPLIER = 1
-RSI_LONG_MAX = 50
-RSI_SHORT_MIN = 50
-CONFIDENCE_THRESHOLD = 10
-MIN_DAILY_VOLUME = 2000
+PRICE_MOVE_THRESHOLD = 0.005        # 0.5% price move
+VOLUME_MULTIPLIER = 1.5             # 1.5× average volume spike
+RSI_LONG_MAX = 55                    # LONG only if RSI < 55
+RSI_SHORT_MIN = 45                   # SHORT only if RSI > 45
+CONFIDENCE_THRESHOLD = 50
+MIN_DAILY_VOLUME = 2000              # minimum quote volume in USDT
 ATR_MULTIPLIER = 1.5
 
 # ===== Helper Functions =====
@@ -27,7 +28,8 @@ def get_klines(symbol, interval="5m", limit=100):
         ])
         df[["open","high","low","close","volume"]] = df[["open","high","low","close","volume"]].astype(float)
         return df
-    except:
+    except Exception as e:
+        print(f"Failed to fetch klines for {symbol}: {e}")
         return None
 
 def calculate_rsi(df, period=RSI_PERIOD):
@@ -63,8 +65,9 @@ def detect_volume_spike(df, multiplier=VOLUME_MULTIPLIER):
     current_volume = df["volume"].iloc[-1]
     return current_volume > (avg_volume.iloc[-1] * multiplier)
 
-# ===== Signal Calculation =====
+# ===== Main Signal Calculation =====
 def calculate_signal(symbol, last_price, change_pct, df, daily_volume, df_higher_tf=None):
+    # Skip low-volume coins
     if daily_volume < MIN_DAILY_VOLUME:
         return None
 
@@ -74,9 +77,10 @@ def calculate_signal(symbol, last_price, change_pct, df, daily_volume, df_higher
     vol_spike = detect_volume_spike(df)
     atr = calculate_atr(df)
 
-    # 🔹 Debug print to see why signals fail
+    # 🔹 Debug print: see why signals fail
     print(f"{symbol} -> RSI: {rsi}, Trend: {ema_trend_val}, Volume Spike: {vol_spike}, Change: {change_pct:.4f}, Volume: {daily_volume}")
 
+    # Signal logic
     trade_type = None
     if change_pct > PRICE_MOVE_THRESHOLD and ema_trend_val == "up" and (rsi is None or rsi < RSI_LONG_MAX) and vol_spike:
         trade_type = "LONG"
@@ -104,9 +108,8 @@ def calculate_signal(symbol, last_price, change_pct, df, daily_volume, df_higher
         tp3 = entry - atr * ATR_MULTIPLIER * 3
 
     # Confidence
-    confidence = int(abs(change_pct) * 100) + (20 if vol_spike else 0)
+    confidence = int(abs(change_pct)*100) + (20 if vol_spike else 0)
     confidence = min(confidence, 100)
-
     if confidence < CONFIDENCE_THRESHOLD:
         return None
 
