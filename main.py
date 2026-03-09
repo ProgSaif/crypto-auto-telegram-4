@@ -47,7 +47,7 @@ async def run_bot():
                     print("Posting:", s["coin"], s["trade_type"])
                     await send_message_safe(message)
                     posted.add(key)
-                    await asyncio.sleep(2)
+                    await asyncio.sleep(20)
 
         except Exception as e:
             print("Bot error:", e)
