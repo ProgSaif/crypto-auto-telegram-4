@@ -72,8 +72,9 @@ def detect_signals():
                 chart_file = None
             signal['chart_file'] = chart_file
             signals.append(signal)
+            
 
-        print(f"Scanned {symbol}: price={last_price:.4f}, change={change_pct:.4f}%, RSI={rsi:.2f}, EMA={ema_trend}, VolSpike={vol_spike}")
+        print(f"{symbol}: price={last_price:.4f}, change={change_pct:.5f}%, RSI={rsi:.2f}, EMA={ema_trend}, VolSpike={vol_spike}")
 
         time.sleep(0.2)  # avoid hitting Binance too fast
 
