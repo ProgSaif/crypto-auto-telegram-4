@@ -24,6 +24,8 @@ def scan_market():
 
         for coin in data:
 
+            print("Scanning:", coin.get("symbol"))
+
             symbol = coin.get("symbol")
 
             if not symbol.endswith("USDT"):
