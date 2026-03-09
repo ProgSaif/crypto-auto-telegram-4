@@ -1,23 +1,24 @@
 def calculate_signal(coin, last_price, change_pct, rsi, ema_trend, volume_spike):
 
-    if change_pct > 2:
+    # Smaller thresholds for 1-minute signals
+    if change_pct > 0.3:  # LONG
         trade_type = "LONG"
         entry = last_price
-        sl = entry - (entry * 0.01) if not volume_spike else entry - (entry * 0.02)
-        tp1 = entry + (entry * 0.01)
-        tp2 = entry + (entry * 0.02)
-        tp3 = entry + (entry * 0.03)
-    elif change_pct < -2:
+        sl = entry - (entry * 0.002) if not volume_spike else entry - (entry * 0.004)
+        tp1 = entry + (entry * 0.002)
+        tp2 = entry + (entry * 0.004)
+        tp3 = entry + (entry * 0.006)
+    elif change_pct < -0.3:  # SHORT
         trade_type = "SHORT"
         entry = last_price
-        sl = entry + (entry * 0.01) if not volume_spike else entry + (entry * 0.02)
-        tp1 = entry - (entry * 0.01)
-        tp2 = entry - (entry * 0.02)
-        tp3 = entry - (entry * 0.03)
+        sl = entry + (entry * 0.002) if not volume_spike else entry + (entry * 0.004)
+        tp1 = entry - (entry * 0.002)
+        tp2 = entry - (entry * 0.004)
+        tp3 = entry - (entry * 0.006)
     else:
         return None
 
-    confidence = int(abs(change_pct) * 2) + (10 if volume_spike else 0)
+    confidence = int(abs(change_pct) * 100) + (10 if volume_spike else 0)
 
     return {
         "coin": coin,
