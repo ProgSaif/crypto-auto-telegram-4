@@ -1,7 +1,7 @@
 import os
 import asyncio
 from telegram import Bot
-from scanner import scan_market
+from scanner import get_signal_coins
 from poster import generate_signal_message
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -9,6 +9,7 @@ CHANNEL_ID = os.getenv("CHANNEL_ID")
 
 bot = Bot(token=BOT_TOKEN)
 posted = set()
+
 
 # ===== Safe send function with auto-delete =====
 async def send_message_safe(message, delete_after=300):
@@ -28,6 +29,7 @@ async def send_message_safe(message, delete_after=300):
             print("Telegram error:", e)
             await asyncio.sleep(15)
 
+
 # ===== Delete message after a delay =====
 async def delete_after_delay(message_id, delay):
     await asyncio.sleep(delay)
@@ -37,13 +39,14 @@ async def delete_after_delay(message_id, delay):
     except Exception as e:
         print(f"Failed to delete message {message_id}:", e)
 
+
 # ===== Main bot loop =====
 async def run_bot():
-    print("🚀 High Quality Signal Bot Started")
+    print("🚀 Signal bot started")
 
     while True:
         try:
-            signals = scan_market()
+            signals = get_signal_coins()
 
             for s in signals:
                 key = f"{s['coin']}_{s['trade_type']}"
@@ -67,6 +70,7 @@ async def run_bot():
             print("Bot error:", e)
 
         await asyncio.sleep(30)  # wait before next scan
+
 
 # ===== Run the bot =====
 asyncio.run(run_bot())
