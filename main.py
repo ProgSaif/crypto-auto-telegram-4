@@ -30,6 +30,6 @@ async def run_bot():
                 await send_message_safe(message)
                 posted.add(key)
                 await asyncio.sleep(2)
-        await asyncio.sleep(10)  # fast testing loop
+        await asyncio.sleep(10)  # fast scan loop
 
 asyncio.run(run_bot())
