@@ -4,14 +4,18 @@ from signals import calculate_signal, get_klines
 
 def scan_market():
 
-    url = "https://api.binance.com/api/v3/ticker/24hr"
+    url = "https://data-api.binance.vision/api/v3/ticker/24hr"
 
     try:
 
-        response = requests.get(url, timeout=10)
+        response = requests.get(
+            url,
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=10
+        )
+
         data = response.json()
 
-        # ✅ Important check
         if not isinstance(data, list):
             print("Unexpected Binance response:", data)
             return []
@@ -20,12 +24,12 @@ def scan_market():
 
         for coin in data:
 
+            symbol = coin.get("symbol")
+
+            if not symbol.endswith("USDT"):
+                continue
+
             try:
-
-                symbol = coin.get("symbol")
-
-                if not symbol or not symbol.endswith("USDT"):
-                    continue
 
                 last_price = float(coin.get("lastPrice", 0))
                 change_pct = float(coin.get("priceChangePercent", 0)) / 100
