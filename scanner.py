@@ -18,33 +18,52 @@ def get_market_data():
         "page": 1,
         "price_change_percentage": "24h"
     }
-    response = requests.get(url, params=params, timeout=10)
-    return response.json()
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        if not isinstance(data, list):
+            print("Unexpected market data:", data)
+            return []
+        return data
+    except Exception as e:
+        print("Market data fetch error:", e)
+        return []
 
 def get_ohlcv(coin_id, vs_currency="usd", days=1, interval="minute"):
-    url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart"
-    params = {"vs_currency": vs_currency, "days": days, "interval": interval}
-    data = requests.get(url, params=params, timeout=10).json()
-    df = pd.DataFrame(data['prices'], columns=["timestamp","close"])
-    df["open"] = df["close"]
-    df["high"] = df["close"]
-    df["low"] = df["close"]
-    df["volume"] = pd.DataFrame(data['total_volumes'])[1]
-    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-    df.set_index('timestamp', inplace=True)
-    return df
+    try:
+        url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart"
+        params = {"vs_currency": vs_currency, "days": days, "interval": interval}
+        data = requests.get(url, params=params, timeout=10).json()
+        if "prices" not in data or "total_volumes" not in data:
+            return pd.DataFrame()
+        df = pd.DataFrame(data['prices'], columns=["timestamp","close"])
+        df["open"] = df["close"]
+        df["high"] = df["close"]
+        df["low"] = df["close"]
+        df["volume"] = pd.DataFrame(data['total_volumes'])[1]
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df.set_index('timestamp', inplace=True)
+        return df
+    except Exception as e:
+        print(f"OHLCV fetch error for {coin_id}:", e)
+        return pd.DataFrame()
 
 def detect_signals():
-    data = get_market_data()
+    market_data = get_market_data()
     signals = []
 
-    for coin in data:
-        coin_id = coin['id']
-        symbol = coin['symbol'].upper()
-        last_price = coin['current_price']
-        change_pct = coin['price_change_percentage_24h'] or 0
-        df = get_ohlcv(coin_id, days=1, interval="minute")
+    for coin in market_data:
+        if not isinstance(coin, dict):
+            continue  # skip invalid entries
+        coin_id = coin.get('id')
+        symbol = coin.get('symbol', '').upper()
+        last_price = coin.get('current_price', 0)
+        change_pct = coin.get('price_change_percentage_24h', 0) or 0
 
+        if not coin_id or not symbol:
+            continue
+
+        df = get_ohlcv(coin_id, days=1, interval="minute")
         if df.empty or len(df) < 20:
             continue
 
@@ -63,8 +82,12 @@ def detect_signals():
         signal = calculate_signal(symbol, last_price, change_pct, rsi, ema_trend, vol_spike)
         if signal:
             chart_file = f"charts/{symbol}.png"
-            mpf.plot(df, type='candle', style='yahoo', volume=True,
-                     savefig=dict(fname=chart_file, dpi=100, bbox_inches="tight"))
+            try:
+                mpf.plot(df, type='candle', style='yahoo', volume=True,
+                         savefig=dict(fname=chart_file, dpi=100, bbox_inches="tight"))
+            except Exception as e:
+                print(f"Chart generation error for {symbol}:", e)
+                chart_file = None
             signal['chart_file'] = chart_file
             signals.append(signal)
 
