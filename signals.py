@@ -18,7 +18,7 @@ ATR_MULTIPLIER = 1.5
 
 # ===== GET KLINES WITH RETRY =====
 def get_klines(symbol, interval="5m", limit=200, retries=3):
-    url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}"
+    url = f"https://api.binance.us/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}"
     for attempt in range(retries):
         try:
             resp = requests.get(url, timeout=10)
