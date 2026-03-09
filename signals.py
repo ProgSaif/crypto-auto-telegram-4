@@ -9,12 +9,12 @@ EMA_SLOW = 21
 RSI_PERIOD = 14
 
 PRICE_MOVE_THRESHOLD = 0.005        # 0.5% price move
-VOLUME_MULTIPLIER = 1.0             # 1x average volume spike for realistic detection
+VOLUME_MULTIPLIER = 0.01             # 1x average volume spike for realistic detection
 RSI_LONG_MAX = 90                    # LONG only if RSI < 55
 RSI_SHORT_MIN = 10                   # SHORT only if RSI > 45
 CONFIDENCE_THRESHOLD = 10
-MIN_DAILY_VOLUME = 2              # minimum quote volume in USDT
-ATR_MULTIPLIER = 1.5
+MIN_DAILY_VOLUME = 0.01             # minimum quote volume in USDT
+ATR_MULTIPLIER = 2
 
 # ===== GET KLINES WITH RETRY =====
 def get_klines(symbol, interval="5m", limit=200, retries=3):
