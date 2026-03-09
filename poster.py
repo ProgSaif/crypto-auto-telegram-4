@@ -1,22 +1,19 @@
-def generate_signal_message(signal):
+def generate_signal_message(coin, entry, sl, tp1, tp2, tp3, trade_type="LONG", confidence=85):
 
-    coin = signal["coin"]
-    trade = signal["trade_type"]
-    change = signal["change"]
-    price = signal["price"]
+    return f"""
+${coin} – {trade_type}
 
-    emoji = "🚀" if trade == "LONG" else "🔻"
+Entry: {entry:.6f}
+SL: {sl:.6f}
+TP1: {tp1:.6f}
+TP2: {tp2:.5f}
+TP3: {tp3:.5f}
 
-    message = f"""
-{emoji} <b>CRYPTO SIGNAL</b>
+Why this setup?
+• Confidence: {confidence}%
+• Price momentum detected, strong trend on 1H chart
 
-Coin: <b>{coin}</b>
-Direction: <b>{trade}</b>
-
-Price: {price}
-Move: {change}%
-
-#crypto #signal
+— Follow for more real updates —
+DYOR 
+#{coin}
 """
-
-    return message
