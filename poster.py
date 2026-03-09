@@ -11,6 +11,14 @@ TP3: {tp3:.8f}
 Why this setup?
 • Confidence: {confidence}%
 • Strong trend on 1H chart
+• Confirmed by EMA cross on 15m/1H charts
+• RSI indicates {'oversold' if trade_type=='LONG' else 'overbought'} conditions
+• Volume shows recent spike compared to average
+• ATR used to calculate realistic TP/SL
+• Momentum aligns with recent price breakout
+• Suitable for intraday swing trading
+• Risk/reward ratio favorable for calculated entries
+• Coin is actively traded with sufficient liquidity
 
 Please like and comment your PNL
 — Follow for more updates —
