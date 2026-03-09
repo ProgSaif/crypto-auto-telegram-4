@@ -6,22 +6,31 @@ import numpy as np
 EMA_FAST = 9
 EMA_SLOW = 21
 RSI_PERIOD = 14
-VOLUME_MULTIPLIER = 3          # strict volume spike
-CONFIDENCE_THRESHOLD = 70      # only post if confidence >= 70
+
+PRICE_CHANGE_THRESHOLD = 0.03     # 3% price move required
+RSI_LONG_MAX = 45                 # LONG only if RSI < 45 (oversold)
+RSI_SHORT_MIN = 55                # SHORT only if RSI > 55 (overbought)
+VOLUME_MULTIPLIER = 4             # Volume spike must be ≥ 4× average
+CONFIDENCE_THRESHOLD = 70
 TP_SL_ATR_MULTIPLIER = 1.5
-PRICE_CHANGE_THRESHOLD = 0.02  # 2% price change
-MIN_DAILY_VOLUME = 500000      # USD
+MIN_DAILY_VOLUME = 1000000        # Only scan coins with daily volume ≥ $1M
+
+# Optional: Only scan top coins
+TOP_COINS = [
+    "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "ADAUSDT",
+    "XRPUSDT", "DOGEUSDT", "LTCUSDT", "AVAXUSDT", "DOTUSDT"
+]
 
 # ===== Helper Functions =====
 def get_klines(symbol, interval="5m", limit=100):
-    url = f"https://api.binance.com/api/v3/klines?symbol={symbol}USDT&interval={interval}&limit={limit}"
+    url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}"
     try:
         resp = requests.get(url, timeout=10)
         data = resp.json()
         df = pd.DataFrame(data, columns=[
-            "open_time", "open", "high", "low", "close",
-            "volume", "close_time", "quote_asset_volume",
-            "trades", "taker_base", "taker_quote", "ignore"
+            "open_time","open","high","low","close",
+            "volume","close_time","quote_asset_volume",
+            "trades","taker_base","taker_quote","ignore"
         ])
         df[["open","high","low","close","volume"]] = df[["open","high","low","close","volume"]].astype(float)
         return df
@@ -63,39 +72,38 @@ def detect_volume_spike(df, multiplier=VOLUME_MULTIPLIER):
     return current_volume > (avg_volume.iloc[-1] * multiplier)
 
 # ===== Pro Signal Function =====
-def calculate_signal(coin, last_price, change_pct, df, daily_volume, df_higher_tf=None):
-    """
-    Generate pro-quality signal
-    df_higher_tf: higher timeframe dataframe for trend confirmation (e.g., 1H)
-    """
+def calculate_signal(symbol, last_price, change_pct, df, daily_volume, df_higher_tf=None):
+    # Only scan top coins
+    if symbol not in TOP_COINS:
+        return None
 
-    # --- Ignore low-liquidity coins ---
+    # Ignore low-liquidity coins
     if daily_volume < MIN_DAILY_VOLUME:
         return None
 
-    # --- Indicators ---
+    # Indicators
     rsi = calculate_rsi(df)
     ema_trend = calculate_ema_trend(df)
     atr = calculate_atr(df)
     volume_spike = detect_volume_spike(df)
 
-    # --- Higher timeframe trend confirmation ---
+    # Higher timeframe trend confirmation
     if df_higher_tf is not None:
         ema_trend_htf = calculate_ema_trend(df_higher_tf)
         if ema_trend_htf != ema_trend:
-            return None  # skip if lower timeframe trend against higher timeframe
+            return None  # skip counter-trend
 
-    # --- Signal Logic ---
+    # Signal Logic
     trade_type = None
-    if change_pct > PRICE_CHANGE_THRESHOLD and ema_trend == "up" and (rsi is None or rsi < 50) and volume_spike:
+    if change_pct > PRICE_CHANGE_THRESHOLD and ema_trend == "up" and (rsi is None or rsi < RSI_LONG_MAX) and volume_spike:
         trade_type = "LONG"
-    elif change_pct < -PRICE_CHANGE_THRESHOLD and ema_trend == "down" and (rsi is None or rsi > 50) and volume_spike:
+    elif change_pct < -PRICE_CHANGE_THRESHOLD and ema_trend == "down" and (rsi is None or rsi > RSI_SHORT_MIN) and volume_spike:
         trade_type = "SHORT"
 
     if not trade_type:
         return None
 
-    # --- TP/SL based on ATR ---
+    # TP/SL based on ATR
     if atr is None:
         atr = last_price * 0.01  # fallback
 
@@ -105,24 +113,24 @@ def calculate_signal(coin, last_price, change_pct, df, daily_volume, df_higher_t
         tp1 = entry + atr * TP_SL_ATR_MULTIPLIER
         tp2 = entry + atr * TP_SL_ATR_MULTIPLIER * 2
         tp3 = entry + atr * TP_SL_ATR_MULTIPLIER * 3
-    else:  # SHORT
+    else:
         entry = last_price
         sl = entry + atr * TP_SL_ATR_MULTIPLIER
         tp1 = entry - atr * TP_SL_ATR_MULTIPLIER
         tp2 = entry - atr * TP_SL_ATR_MULTIPLIER * 2
         tp3 = entry - atr * TP_SL_ATR_MULTIPLIER * 3
 
-    # --- Confidence scoring ---
+    # Confidence scoring
     confidence = int(abs(change_pct)*100) + (20 if volume_spike else 0) + \
                  (20 if ema_trend == ("up" if trade_type=="LONG" else "down") else 0)
     confidence = min(confidence, 100)
 
-    # --- Only post if confidence high ---
+    # Only post if confidence high
     if confidence < CONFIDENCE_THRESHOLD:
         return None
 
     return {
-        "coin": coin,
+        "coin": symbol.replace("USDT", ""),
         "entry": entry,
         "sl": sl,
         "tp1": tp1,
