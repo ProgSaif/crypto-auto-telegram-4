@@ -1,16 +1,17 @@
-def generate_signal_message(coin, entry, sl, tp1, tp2, tp3, trade_type="LONG", confidence=85):
+def generate_signal_message(signal):
     return f"""
-${coin} – {trade_type}
+${signal['coin']} – {signal['trade_type']}
 
-Entry: {entry:.5f}
-SL: {sl:.5f}
-TP1: {tp1:.5f}
-TP2: {tp2:.4f}
-TP3: {tp3:.4f}
+Entry: {signal['entry']:.7f}
+SL: {signal['sl']:.7f}
+TP1: {signal['tp1']:.6f}
+TP2: {signal['tp2']:.5f}
+TP3: {signal['tp3']:.5f}
 
 Why this setup?
-• Confidence: {confidence}%
-• Price momentum detected, strong trend on 1H chart
+• Confidence: {signal['confidence']}%
+• RSI: {signal['rsi']:.2f}  EMA Trend: {signal['ema_trend']}
+• Volume spike: {'Yes' if signal['volume_spike'] else 'No'}
 
 — Follow for more real updates —
 DYOR
