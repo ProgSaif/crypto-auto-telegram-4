@@ -1,5 +1,6 @@
 import os
 import asyncio
+import time
 from telegram import Bot
 from scanner import get_signal_coins
 from poster import generate_signal_message
@@ -8,7 +9,9 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
 
 bot = Bot(token=BOT_TOKEN)
-posted = set()
+
+# Store posted signals with timestamp
+posted = {}  # { "COIN_LONG": timestamp }
 
 
 async def send_message_safe(message):
@@ -29,6 +32,12 @@ async def run_bot():
 
     while True:
         try:
+            # Remove old signals (>5min)
+            now = time.time()
+            for key in list(posted.keys()):
+                if now - posted[key] > 300:  # 300 seconds = 5 minutes
+                    del posted[key]
+
             signals = get_signal_coins()
 
             for s in signals:
@@ -46,13 +55,13 @@ async def run_bot():
                     )
                     print("Posting:", s["coin"], s["trade_type"])
                     await send_message_safe(message)
-                    posted.add(key)
+                    posted[key] = time.time()  # store current time
                     await asyncio.sleep(2)
 
         except Exception as e:
             print("Bot error:", e)
 
-        await asyncio.sleep(30)
-
+        await asyncio.sleep(10)  # fast scan loop
+        
 
 asyncio.run(run_bot())
