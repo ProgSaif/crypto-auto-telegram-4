@@ -1,87 +1,74 @@
 import requests
 
+# Top 100 coins (example list, you can update)
+TOP_100_COINS = [
+    "BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","XRPUSDT",
+    "ADAUSDT","DOGEUSDT","AVAXUSDT","DOTUSDT","LINKUSDT",
+    "LTCUSDT","MATICUSDT","ATOMUSDT","UNIUSDT","APTUSDT"
+    # add remaining coins up to 100...
+]
+
 def get_signal_coins():
-
     url = "https://data-api.binance.vision/api/v3/ticker/24hr"
-
     try:
-        response = requests.get(
-            url,
-            headers={"User-Agent": "Mozilla/5.0"},
-            timeout=10
-        )
-
+        response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
         data = response.json()
-
-        signals = []
-
         if not isinstance(data, list):
             print("Unexpected response:", data)
-            return []
+            return [], [], [], []
+
+        top100_signals = []
+        new_listings = []
+        gainers = []
+        losers = []
 
         for item in data:
-
             symbol = item.get("symbol", "")
+            change = float(item.get("priceChangePercent",0))
+            last_price = float(item.get("lastPrice",0))
 
-            if symbol.endswith("USDT"):
+            # Top 100 coins signals
+            if symbol in TOP_100_COINS and abs(change) > 1:
+                trade_type = "LONG" if change > 0 else "SHORT"
+                entry = last_price
+                sl = entry*0.98 if trade_type=="LONG" else entry*1.02
+                tp1 = entry*1.02 if trade_type=="LONG" else entry*0.98
+                tp2 = entry*1.04 if trade_type=="LONG" else entry*0.96
+                tp3 = entry*1.06 if trade_type=="LONG" else entry*0.94
+                confidence = min(int(abs(change)*10),95)
+                coin = symbol.replace("USDT","")
+                top100_signals.append({
+                    "coin": coin,
+                    "entry": entry,
+                    "sl": sl,
+                    "tp1": tp1,
+                    "tp2": tp2,
+                    "tp3": tp3,
+                    "trade_type": trade_type,
+                    "confidence": confidence
+                })
 
-                change = float(item.get("priceChangePercent", 0))
-                last_price = float(item.get("lastPrice", 0))
+            # Daily gainers/losers
+            if change > 0:
+                gainers.append((symbol, change, last_price))
+            elif change < 0:
+                losers.append((symbol, change, last_price))
 
-                # LONG signal
-                if change > 1:
+            # Placeholder for new listings
+            if symbol not in TOP_100_COINS and len(new_listings) < 5:
+                new_listings.append((symbol, last_price))
 
-                    entry = last_price
-                    sl = entry * 0.98
-                    tp1 = entry * 1.02
-                    tp2 = entry * 1.04
-                    tp3 = entry * 1.06
+        # Top 5 gainers/losers
+        gainers = sorted(gainers, key=lambda x: x[1], reverse=True)[:5]
+        losers = sorted(losers, key=lambda x: x[1])[:5]
 
-                    trade_type = "LONG"
-                    confidence = min(int(change * 10), 95)
+        print("Top100 signals:", [s["coin"] for s in top100_signals])
+        print("Gainers:", [s[0] for s in gainers])
+        print("Losers:", [s[0] for s in losers])
+        print("New listings:", [s[0] for s in new_listings])
 
-                    coin = symbol.replace("USDT", "")
-
-                    signals.append({
-                        "coin": coin,
-                        "entry": entry,
-                        "sl": sl,
-                        "tp1": tp1,
-                        "tp2": tp2,
-                        "tp3": tp3,
-                        "trade_type": trade_type,
-                        "confidence": confidence
-                    })
-
-                # SHORT signal
-                elif change < -1:
-
-                    entry = last_price
-                    sl = entry * 1.02
-                    tp1 = entry * 0.98
-                    tp2 = entry * 0.96
-                    tp3 = entry * 0.94
-
-                    trade_type = "SHORT"
-                    confidence = min(int(abs(change) * 10), 95)
-
-                    coin = symbol.replace("USDT", "")
-
-                    signals.append({
-                        "coin": coin,
-                        "entry": entry,
-                        "sl": sl,
-                        "tp1": tp1,
-                        "tp2": tp2,
-                        "tp3": tp3,
-                        "trade_type": trade_type,
-                        "confidence": confidence
-                    })
-
-        print("Detected signals:", [s["coin"] for s in signals])
-
-        return signals
+        return top100_signals, gainers, losers, new_listings
 
     except Exception as e:
         print("Scanner error:", e)
-        return []
+        return [], [], [], []
