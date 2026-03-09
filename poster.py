@@ -14,5 +14,4 @@ Why this setup?
 • Volume spike: {'Yes' if signal['volume_spike'] else 'No'}
 
 — Follow for more real updates —
-#{coin}
 """
