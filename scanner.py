@@ -3,7 +3,7 @@ from signals import calculate_signal, get_klines
 import time
 
 def scan_market():
-    url = "https://api.binance.com/api/v3/ticker/24hr"
+    url = "https://api.binance.us/api/v3/ticker/24hr"
     signals = []
 
     try:
