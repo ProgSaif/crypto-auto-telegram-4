@@ -1,6 +1,5 @@
 def calculate_signal(coin, last_price, change_pct, rsi, ema_trend, volume_spike):
 
-    # Base trade type
     if change_pct > 2:
         trade_type = "LONG"
         entry = last_price
@@ -16,7 +15,7 @@ def calculate_signal(coin, last_price, change_pct, rsi, ema_trend, volume_spike)
         tp2 = entry - (entry * 0.02)
         tp3 = entry - (entry * 0.03)
     else:
-        return None  # ignore small moves
+        return None
 
     confidence = int(abs(change_pct) * 2) + (10 if volume_spike else 0)
 
