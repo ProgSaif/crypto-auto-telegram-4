@@ -48,10 +48,10 @@ def check_signal(symbol):
 
     change = ((last - prev) / prev) * 100
 
-    if change > 2:
+    if change > 0.1:
         print(f"🚀 {symbol} PUMPING +{change:.2f}%")
 
-    elif change < -2:
+    elif change < -0.1:
         print(f"🔻 {symbol} DUMPING {change:.2f}%")
 
 
