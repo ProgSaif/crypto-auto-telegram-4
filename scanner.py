@@ -1,31 +1,31 @@
 import requests
-import time
 
 BASE_URL = "https://api.binance.us/api/v3"
 
-# Get all USDT pairs
+
 def get_symbols():
+
     url = f"{BASE_URL}/exchangeInfo"
     r = requests.get(url)
-
     data = r.json()
 
-    if "symbols" not in data:
-        print("Unexpected response from Binance:", data)
-        return []
+    symbols = []
 
-    symbols = [s["symbol"] for s in data["symbols"] if s["quoteAsset"] == "USDT" and s["status"] == "TRADING"]
+    for s in data["symbols"]:
+        if s["quoteAsset"] == "USDT" and s["status"] == "TRADING":
+            symbols.append(s["symbol"])
 
     return symbols
 
 
-# Get klines
-def get_klines(symbol, interval="5m", limit=50):
+def get_klines(symbol):
+
     url = f"{BASE_URL}/klines"
+
     params = {
         "symbol": symbol,
-        "interval": interval,
-        "limit": limit
+        "interval": "5m",
+        "limit": 2
     }
 
     r = requests.get(url, params=params)
@@ -33,52 +33,42 @@ def get_klines(symbol, interval="5m", limit=50):
     return r.json()
 
 
-# Simple breakout strategy
-def check_signal(symbol):
+def detect_signals():
 
-    klines = get_klines(symbol)
+    signals = []
 
-    if not klines or isinstance(klines, dict):
-        return
+    symbols = get_symbols()
 
-    closes = [float(k[4]) for k in klines]
+    for symbol in symbols:
 
-    last = closes[-1]
-    prev = closes[-2]
+        try:
 
-    change = ((last - prev) / prev) * 100
+            klines = get_klines(symbol)
 
-    if change > 0.1:
-        print(f"🚀 {symbol} PUMPING +{change:.2f}%")
+            prev_close = float(klines[-2][4])
+            last_close = float(klines[-1][4])
 
-    elif change < -0.1:
-        print(f"🔻 {symbol} DUMPING {change:.2f}%")
+            change = ((last_close - prev_close) / prev_close) * 100
 
+            if change > 1:
 
-def run_scanner():
+                signals.append({
+                    "coin": symbol,
+                    "trade_type": "LONG",
+                    "change": round(change, 2),
+                    "price": last_close
+                })
 
-    while True:
+            elif change < -1:
 
-        symbols = get_symbols()
+                signals.append({
+                    "coin": symbol,
+                    "trade_type": "SHORT",
+                    "change": round(change, 2),
+                    "price": last_close
+                })
 
-        if not symbols:
-            print("No symbols fetched, skipping scan.")
-            time.sleep(10)
+        except:
             continue
 
-        print(f"Scanning {len(symbols)} USDT pairs...")
-
-        for symbol in symbols:
-
-            try:
-                check_signal(symbol)
-                time.sleep(0.1)
-
-            except Exception as e:
-                print("Error:", e)
-
-        print("Scan complete. Waiting 60s...\n")
-        time.sleep(60)
-
-
-run_scanner()
+    return signals
