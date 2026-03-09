@@ -1,8 +1,8 @@
 import requests
 
 def get_movers():
+    url = "https://data-api.binance.vision/api/v3/ticker/24hr"
 
-    url = "https://api.binance.com/api/v3/ticker/24hr"
 
     try:
         response = requests.get(url, timeout=10)
