@@ -10,8 +10,8 @@ RSI_PERIOD = 14
 
 PRICE_MOVE_THRESHOLD = 0.005        # 0.5% price move
 VOLUME_MULTIPLIER = 1.0             # 1x average volume spike for realistic detection
-RSI_LONG_MAX = 55                    # LONG only if RSI < 55
-RSI_SHORT_MIN = 45                   # SHORT only if RSI > 45
+RSI_LONG_MAX = 90                    # LONG only if RSI < 55
+RSI_SHORT_MIN = 10                   # SHORT only if RSI > 45
 CONFIDENCE_THRESHOLD = 10
 MIN_DAILY_VOLUME = 20              # minimum quote volume in USDT
 ATR_MULTIPLIER = 1.5
