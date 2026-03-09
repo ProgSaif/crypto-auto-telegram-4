@@ -11,36 +11,46 @@ def scan_market():
         response = requests.get(url, timeout=10)
         data = response.json()
 
+        # ✅ Important check
+        if not isinstance(data, list):
+            print("Unexpected Binance response:", data)
+            return []
+
         signals = []
 
         for coin in data:
 
-            symbol = coin["symbol"]
+            try:
 
-            if not symbol.endswith("USDT"):
-                continue
+                symbol = coin.get("symbol")
 
-            last_price = float(coin["lastPrice"])
-            change_pct = float(coin["priceChangePercent"]) / 100
-            volume = float(coin["quoteVolume"])
+                if not symbol or not symbol.endswith("USDT"):
+                    continue
 
-            df = get_klines(symbol, "5m", 100)
-            df_htf = get_klines(symbol, "1h", 100)
+                last_price = float(coin.get("lastPrice", 0))
+                change_pct = float(coin.get("priceChangePercent", 0)) / 100
+                volume = float(coin.get("quoteVolume", 0))
 
-            if df is None:
-                continue
+                df = get_klines(symbol, "5m", 100)
+                df_htf = get_klines(symbol, "1h", 100)
 
-            signal = calculate_signal(
-                symbol,
-                last_price,
-                change_pct,
-                df,
-                volume,
-                df_htf
-            )
+                if df is None:
+                    continue
 
-            if signal:
-                signals.append(signal)
+                signal = calculate_signal(
+                    symbol,
+                    last_price,
+                    change_pct,
+                    df,
+                    volume,
+                    df_htf
+                )
+
+                if signal:
+                    signals.append(signal)
+
+            except Exception as coin_error:
+                print(f"Error processing {symbol}: {coin_error}")
 
         print("Signals detected:", len(signals))
 
