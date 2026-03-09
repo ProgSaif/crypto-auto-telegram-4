@@ -1,0 +1,37 @@
+import os
+import asyncio
+from telegram import Bot
+from scanner import get_movers
+from poster import generate_post
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHANNEL_ID = os.getenv("CHANNEL_ID")
+
+bot = Bot(token=BOT_TOKEN)
+
+posted = set()
+
+
+async def run_bot():
+
+    while True:
+
+        coins = get_movers()
+
+        for coin in coins:
+
+            if coin not in posted:
+
+                message = generate_post(coin)
+
+                await bot.send_message(
+                    chat_id=CHANNEL_ID,
+                    text=message
+                )
+
+                posted.add(coin)
+
+        await asyncio.sleep(300)
+
+
+asyncio.run(run_bot())
