@@ -1,12 +1,12 @@
 import requests
 import pandas as pd
-import numpy as np
 from ta.momentum import RSIIndicator
 from ta.trend import EMAIndicator
 from signals import calculate_signal
 import mplfinance as mpf
 import os
 
+# Ensure charts folder exists safely
 if not os.path.exists("charts"):
     os.makedirs("charts")
 
@@ -15,9 +15,9 @@ def get_market_data():
     params = {
         "vs_currency": "usd",
         "order": "market_cap_desc",
-        "per_page": 200,
+        "per_page": 50,
         "page": 1,
-        "price_change_percentage": "0.01h,1h,24h"
+        "price_change_percentage": "1h,24h"
     }
     try:
         response = requests.get(url, params=params, timeout=10)
@@ -94,6 +94,6 @@ def detect_signals():
             signals.append(signal)
 
         # Debug log
-        print(f"Scanned {symbol}: price={last_price}, change={change_pct:.2f}%, RSI={rsi:.2f}, EMA={ema_trend}, VolSpike={vol_spike}")
+        print(f"Scanned {symbol}: price={last_price:.4f}, change={change_pct:.4f}%, RSI={rsi:.2f}, EMA={ema_trend}, VolSpike={vol_spike}")
 
     return signals
