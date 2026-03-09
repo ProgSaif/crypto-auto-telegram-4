@@ -21,7 +21,7 @@ ATR_MULTIPLIER = 1.5
 
 def get_klines(symbol, interval="5m", limit=100):
 
-    url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}"
+    url = f"https://data-api.binance.vision/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}"
 
     try:
 
