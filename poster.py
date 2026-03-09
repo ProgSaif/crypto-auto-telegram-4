@@ -1,5 +1,4 @@
 def generate_signal_message(coin, entry, sl, tp1, tp2, tp3, trade_type="LONG", confidence=85):
-
     return f"""
 ${coin} – {trade_type}
 
