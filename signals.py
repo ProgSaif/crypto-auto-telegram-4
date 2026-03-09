@@ -1,145 +1,118 @@
+# signals.py
 import requests
 import pandas as pd
-import numpy as np
+import talib
 
-# ===== Adjustable Parameters =====
-EMA_FAST = 9
-EMA_SLOW = 21
-RSI_PERIOD = 14
-
-PRICE_CHANGE_THRESHOLD = 0.03     # 3% price move required
-RSI_LONG_MAX = 45                 # LONG only if RSI < 45 (oversold)
-RSI_SHORT_MIN = 55                # SHORT only if RSI > 55 (overbought)
-VOLUME_MULTIPLIER = 4             # Volume spike must be ≥ 4× average
-CONFIDENCE_THRESHOLD = 70
-TP_SL_ATR_MULTIPLIER = 1.5
-MIN_DAILY_VOLUME = 1000000        # Only scan coins with daily volume ≥ $1M
-
-# Optional: Only scan top coins
-TOP_COINS = [
-    "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "ADAUSDT",
-    "XRPUSDT", "DOGEUSDT", "LTCUSDT", "AVAXUSDT", "DOTUSDT"
-]
-
-# ===== Helper Functions =====
+# --- Fetch candle data from Binance ---
 def get_klines(symbol, interval="5m", limit=100):
     url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}"
     try:
-        resp = requests.get(url, timeout=10)
-        data = resp.json()
-        df = pd.DataFrame(data, columns=[
-            "open_time","open","high","low","close",
-            "volume","close_time","quote_asset_volume",
-            "trades","taker_base","taker_quote","ignore"
+        resp = requests.get(url, timeout=10).json()
+        df = pd.DataFrame(resp, columns=[
+            "open_time","open","high","low","close","volume","close_time",
+            "quote_asset_volume","number_of_trades","taker_buy_base","taker_buy_quote","ignore"
         ])
-        df[["open","high","low","close","volume"]] = df[["open","high","low","close","volume"]].astype(float)
+        df = df.astype({
+            "open":"float","high":"float","low":"float","close":"float","volume":"float"
+        })
         return df
     except Exception as e:
-        print(f"Failed to fetch klines for {symbol}: {e}")
+        print("Failed to fetch klines:", e)
         return None
 
-def calculate_rsi(df, period=RSI_PERIOD):
-    delta = df["close"].diff()
-    gain = np.where(delta>0, delta, 0)
-    loss = np.where(delta<0, -delta, 0)
-    avg_gain = pd.Series(gain).rolling(period).mean()
-    avg_loss = pd.Series(loss).rolling(period).mean()
-    rs = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs))
-    return rsi.iloc[-1] if not rsi.empty else None
-
-def calculate_ema_trend(df, fast=EMA_FAST, slow=EMA_SLOW):
-    ema_fast = df["close"].ewm(span=fast, adjust=False).mean()
-    ema_slow = df["close"].ewm(span=slow, adjust=False).mean()
-    if ema_fast.iloc[-1] > ema_slow.iloc[-1]:
-        return "up"
-    elif ema_fast.iloc[-1] < ema_slow.iloc[-1]:
-        return "down"
-    else:
-        return "flat"
-
+# --- Calculate ATR ---
 def calculate_atr(df, period=14):
-    high_low = df["high"] - df["low"]
-    high_close = np.abs(df["high"] - df["close"].shift())
-    low_close = np.abs(df["low"] - df["close"].shift())
-    tr = pd.DataFrame({"hl": high_low, "hc": high_close, "lc": low_close}).max(axis=1)
-    atr = tr.rolling(period).mean()
-    return atr.iloc[-1] if not atr.empty else None
+    return talib.ATR(df["high"], df["low"], df["close"], timeperiod=period)
 
-def detect_volume_spike(df, multiplier=VOLUME_MULTIPLIER):
-    avg_volume = df["volume"].rolling(20).mean()
-    current_volume = df["volume"].iloc[-1]
-    return current_volume > (avg_volume.iloc[-1] * multiplier)
-
-# ===== Pro Signal Function =====
-def calculate_signal(symbol, last_price, change_pct, df, daily_volume, df_higher_tf=None):
-    # Only scan top coins
-    if symbol not in TOP_COINS:
+# --- Calculate signals ---
+def calculate_signal(symbol):
+    df = get_klines(symbol, interval="5m", limit=50)
+    if df is None or len(df) < 20:
         return None
 
-    # Ignore low-liquidity coins
-    if daily_volume < MIN_DAILY_VOLUME:
-        return None
+    # RSI
+    rsi = talib.RSI(df["close"], timeperiod=14).iloc[-1]
 
-    # Indicators
-    rsi = calculate_rsi(df)
-    ema_trend = calculate_ema_trend(df)
-    atr = calculate_atr(df)
-    volume_spike = detect_volume_spike(df)
+    # EMA trend
+    ema_fast = talib.EMA(df["close"], timeperiod=12).iloc[-1]
+    ema_slow = talib.EMA(df["close"], timeperiod=26).iloc[-1]
 
-    # Higher timeframe trend confirmation
-    if df_higher_tf is not None:
-        ema_trend_htf = calculate_ema_trend(df_higher_tf)
-        if ema_trend_htf != ema_trend:
-            return None  # skip counter-trend
+    # Volume spike
+    avg_volume = df["volume"].rolling(20).mean().iloc[-2]
+    volume_spike = df["volume"].iloc[-1] > 1.5 * avg_volume
 
-    # Signal Logic
-    trade_type = None
-    if change_pct > PRICE_CHANGE_THRESHOLD and ema_trend == "up" and (rsi is None or rsi < RSI_LONG_MAX) and volume_spike:
+    # ATR for SL/TP calculation
+    atr = calculate_atr(df).iloc[-1]
+
+    last_price = df["close"].iloc[-1]
+
+    # High-quality filter thresholds
+    if rsi < 35 and ema_fast > ema_slow and volume_spike:
         trade_type = "LONG"
-    elif change_pct < -PRICE_CHANGE_THRESHOLD and ema_trend == "down" and (rsi is None or rsi > RSI_SHORT_MIN) and volume_spike:
+    elif rsi > 65 and ema_fast < ema_slow and volume_spike:
         trade_type = "SHORT"
-
-    if not trade_type:
+    else:
         return None
 
-    # TP/SL based on ATR
-    if atr is None:
-        atr = last_price * 0.01  # fallback
-
+    # Auto-adjusted TP/SL
     if trade_type == "LONG":
         entry = last_price
-        sl = entry - atr * TP_SL_ATR_MULTIPLIER
-        tp1 = entry + atr * TP_SL_ATR_MULTIPLIER
-        tp2 = entry + atr * TP_SL_ATR_MULTIPLIER * 2
-        tp3 = entry + atr * TP_SL_ATR_MULTIPLIER * 3
+        sl = entry - atr
+        tp1 = entry + atr * 1
+        tp2 = entry + atr * 2
+        tp3 = entry + atr * 3
     else:
         entry = last_price
-        sl = entry + atr * TP_SL_ATR_MULTIPLIER
-        tp1 = entry - atr * TP_SL_ATR_MULTIPLIER
-        tp2 = entry - atr * TP_SL_ATR_MULTIPLIER * 2
-        tp3 = entry - atr * TP_SL_ATR_MULTIPLIER * 3
+        sl = entry + atr
+        tp1 = entry - atr * 1
+        tp2 = entry - atr * 2
+        tp3 = entry - atr * 3
 
-    # Confidence scoring
-    confidence = int(abs(change_pct)*100) + (20 if volume_spike else 0) + \
-                 (20 if ema_trend == ("up" if trade_type=="LONG" else "down") else 0)
-    confidence = min(confidence, 100)
-
-    # Only post if confidence high
-    if confidence < CONFIDENCE_THRESHOLD:
-        return None
+    confidence = int(abs(rsi-50) + (50 if volume_spike else 0))
 
     return {
-        "coin": symbol.replace("USDT", ""),
+        "coin": symbol.replace("USDT",""),
         "entry": entry,
         "sl": sl,
         "tp1": tp1,
         "tp2": tp2,
         "tp3": tp3,
         "trade_type": trade_type,
-        "confidence": confidence,
-        "rsi": rsi,
-        "ema_trend": ema_trend,
-        "volume_spike": volume_spike,
-        "atr": atr
+        "confidence": confidence
     }
+
+# --- Top USDT coins ---
+TOP_COINS = [
+    "BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","ADAUSDT",
+    "XRPUSDT","DOGEUSDT","LTCUSDT","AVAXUSDT","DOTUSDT"
+]
+
+def get_signals():
+    signals = []
+    for sym in TOP_COINS:
+        s = calculate_signal(sym)
+        if s:
+            signals.append(s)
+    return signals
+
+# --- New Listings ---
+def get_new_listings():
+    url = "https://api.binance.com/api/v3/exchangeInfo"
+    try:
+        data = requests.get(url, timeout=10).json()
+        symbols = [s["symbol"] for s in data.get("symbols", []) if s["quoteAsset"]=="USDT" and s["status"]=="TRADING"]
+        return symbols[-5:]  # latest 5
+    except:
+        return []
+
+# --- Gainers / Losers ---
+def get_gainers_losers(top_n=5):
+    url = "https://api.binance.com/api/v3/ticker/24hr"
+    try:
+        data = requests.get(url, timeout=10).json()
+        usdt_pairs = [x for x in data if x["symbol"].endswith("USDT")]
+        gainers = sorted(usdt_pairs, key=lambda x: float(x["priceChangePercent"]), reverse=True)[:top_n]
+        losers = sorted(usdt_pairs, key=lambda x: float(x["priceChangePercent"]))[:top_n]
+        return gainers, losers
+    except:
+        return [], []
