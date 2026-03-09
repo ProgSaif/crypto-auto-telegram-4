@@ -5,8 +5,15 @@ from ta.trend import EMAIndicator
 from signals import calculate_signal
 import time
 
-TOP_SYMBOLS = ["BTCUSDT","ETHUSDT","BNBUSDT","XRPUSDT","SOLUSDT",
-               "ADAUSDT","MATICUSDT","DOGEUSDT","LTCUSDT","DOTUSDT"]
+def get_all_usdt_symbols():
+    url = "https://api.binance.com/api/v3/ticker/24hr"
+    try:
+        data = requests.get(url, timeout=10).json()
+        symbols = [item['symbol'] for item in data if item['symbol'].endswith("USDT")]
+        return symbols
+    except Exception as e:
+        print("Failed to fetch all symbols:", e)
+        return []
 
 def get_klines(symbol, interval="1m", limit=50):
     url = "https://api.binance.com/api/v3/klines"
@@ -28,8 +35,10 @@ def get_klines(symbol, interval="1m", limit=50):
 
 def detect_signals():
     signals = []
+    symbols = get_all_usdt_symbols()
+    print(f"Scanning {len(symbols)} USDT pairs...")
 
-    for symbol in TOP_SYMBOLS:
+    for symbol in symbols:
         df = get_klines(symbol)
         if df.empty or len(df) < 20:
             continue
