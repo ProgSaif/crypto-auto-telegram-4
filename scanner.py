@@ -1,74 +1,77 @@
 import requests
 
-BASE_URL = "https://api.binance.us/api/v3"
+def get_signal_coins():
 
+    url = "https://data-api.binance.vision/api/v3/ticker/24hr"
 
-def get_symbols():
+    try:
+        response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+        data = response.json()
 
-    url = f"{BASE_URL}/exchangeInfo"
-    r = requests.get(url)
-    data = r.json()
+        signals = []
 
-    symbols = []
+        if not isinstance(data, list):
+            print("Unexpected response:", data)
+            return []
 
-    for s in data["symbols"]:
-        if s["quoteAsset"] == "USDT" and s["status"] == "TRADING":
-            symbols.append(s["symbol"])
+        for item in data:
+            symbol = item.get("symbol", "")
+            if symbol.endswith("USDT"):
+                change = float(item.get("priceChangePercent", 0))
+                last_price = float(item.get("lastPrice", 0))
 
-    return symbols
+                if change > 5:
 
+                    entry = last_price
+                    sl = entry * 0.98
+                    tp1 = entry * 1.02
+                    tp2 = entry * 1.04
+                    tp3 = entry * 1.06
 
-def get_klines(symbol):
+                    trade_type = "LONG"
+                    confidence = int(change * 2)
 
-    url = f"{BASE_URL}/klines"
+                    coin = symbol.replace("USDT", "")
 
-    params = {
-        "symbol": symbol,
-        "interval": "5m",
-        "limit": 2
-    }
+                    signals.append({
+                        "coin": coin,
+                        "entry": entry,
+                        "sl": sl,
+                        "tp1": tp1,
+                        "tp2": tp2,
+                        "tp3": tp3,
+                        "trade_type": trade_type,
+                        "confidence": confidence
+                    })
 
-    r = requests.get(url, params=params)
+                elif change < -5:
 
-    return r.json()
+                    entry = last_price
+                    sl = entry * 1.02
+                    tp1 = entry * 0.98
+                    tp2 = entry * 0.96
+                    tp3 = entry * 0.94
 
+                    trade_type = "SHORT"
+                    confidence = int(-change * 2)
 
-def detect_signals():
+                    coin = symbol.replace("USDT", "")
 
-    signals = []
+                    signals.append({
+                        "coin": coin,
+                        "entry": entry,
+                        "sl": sl,
+                        "tp1": tp1,
+                        "tp2": tp2,
+                        "tp3": tp3,
+                        "trade_type": trade_type,
+                        "confidence": confidence
+                    })
 
-    symbols = get_symbols()
+        print("Detected signals:", [s["coin"] for s in signals])
 
-    for symbol in symbols:
+        return signals
 
-        try:
-
-            klines = get_klines(symbol)
-
-            prev_close = float(klines[-2][4])
-            last_close = float(klines[-1][4])
-
-            change = ((last_close - prev_close) / prev_close) * 100
-
-            if change > 0.5:
-
-                signals.append({
-                    "coin": symbol,
-                    "trade_type": "LONG",
-                    "change": round(change, 2),
-                    "price": last_close
-                })
-
-            elif change < -0.5:
-
-                signals.append({
-                    "coin": symbol,
-                    "trade_type": "SHORT",
-                    "change": round(change, 2),
-                    "price": last_close
-                })
-
-        except:
-            continue
-
-    return signals
+    except Exception as e:
+        print("Scanner error:", e)
+        return []
