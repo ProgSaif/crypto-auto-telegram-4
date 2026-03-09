@@ -50,7 +50,7 @@ def detect_signals():
 
             change = ((last_close - prev_close) / prev_close) * 100
 
-            if change > 0.1:
+            if change > 0.5:
 
                 signals.append({
                     "coin": symbol,
@@ -59,7 +59,7 @@ def detect_signals():
                     "price": last_close
                 })
 
-            elif change < -0.1:
+            elif change < -0.5:
 
                 signals.append({
                     "coin": symbol,
