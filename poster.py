@@ -7,6 +7,9 @@ TP1: {tp1:.8f}
 TP2: {tp2:.8f}
 TP3: {tp3:.8f}
 
+Please like and comment
+— Follow for more signal —
+
 Why this setup?
 • Confidence: {confidence}%
 • Strong trend on 1H chart
@@ -14,8 +17,7 @@ Why this setup?
 • Momentum aligns with recent price breakout
 • ${coin} is actively traded with sufficient liquidity
 
-Please like and comment your PNL
-— Follow for more updates —
+
 DYOR 
 #{coin}
 """
