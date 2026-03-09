@@ -1,5 +1,5 @@
 def calculate_signal(coin, last_price, change_pct, rsi, ema_trend, volume_spike):
-    # Fast-testing thresholds
+    # Very low thresholds for testing signals
     if change_pct > 0.001:  # LONG on tiny 0.1% moves
         trade_type = "LONG"
         entry = last_price
