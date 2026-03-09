@@ -35,6 +35,6 @@ async def run_bot():
                 await send_message_safe(message, chart)
                 posted.add(key)
                 await asyncio.sleep(5)
-        await asyncio.sleep(300)  # repeat every 5 min
+        await asyncio.sleep(60)  # check every 1 minute
 
 asyncio.run(run_bot())
