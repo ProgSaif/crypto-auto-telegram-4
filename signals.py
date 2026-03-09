@@ -8,127 +8,170 @@ EMA_FAST = 9
 EMA_SLOW = 21
 RSI_PERIOD = 14
 
-PRICE_MOVE_THRESHOLD = 0.005        # 0.5% price move
-VOLUME_MULTIPLIER = 0.01             # 1x average volume spike for realistic detection
-RSI_LONG_MAX = 90                    # LONG only if RSI < 55
-RSI_SHORT_MIN = 10                   # SHORT only if RSI > 45
-CONFIDENCE_THRESHOLD = 10
-MIN_DAILY_VOLUME = 0.01             # minimum quote volume in USDT
-ATR_MULTIPLIER = 2
+PRICE_MOVE_THRESHOLD = 0.005
+VOLUME_MULTIPLIER = 1.5
+RSI_LONG_MAX = 90
+RSI_SHORT_MIN = 10
 
-# ===== GET KLINES WITH RETRY =====
+CONFIDENCE_THRESHOLD = 10
+MIN_DAILY_VOLUME = 100000
+
+ATR_MULTIPLIER = 3
+MIN_MOVE_PERCENT = 0.006   # 0.6% minimum move
+
+# ===== GET KLINES =====
 def get_klines(symbol, interval="5m", limit=200, retries=3):
-    url = f"https://api.binance.us/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}"
+    url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}"
+
     for attempt in range(retries):
         try:
             resp = requests.get(url, timeout=10)
             data = resp.json()
+
             if not isinstance(data, list) or len(data) == 0:
-                raise ValueError("Empty or invalid response")
+                raise ValueError("Empty response")
+
             df = pd.DataFrame(data, columns=[
                 "open_time","open","high","low","close",
                 "volume","close_time","quote_asset_volume",
                 "trades","taker_base","taker_quote","ignore"
             ])
+
             df[["open","high","low","close","volume"]] = df[["open","high","low","close","volume"]].astype(float)
+
             return df
+
         except Exception as e:
             print(f"Attempt {attempt+1} failed for {symbol}: {e}")
             time.sleep(2)
-    print(f"Failed to fetch klines for {symbol} after {retries} retries")
+
     return None
+
 
 # ===== RSI =====
 def calculate_rsi(df, period=RSI_PERIOD):
-    if df is None or df.empty or len(df) < period:
+
+    if df is None or len(df) < period:
         return None
+
     delta = df["close"].diff()
-    gain = np.where(delta>0, delta, 0)
-    loss = np.where(delta<0, -delta, 0)
+
+    gain = np.where(delta > 0, delta, 0)
+    loss = np.where(delta < 0, -delta, 0)
+
     avg_gain = pd.Series(gain).rolling(period).mean()
     avg_loss = pd.Series(loss).rolling(period).mean()
+
     rs = avg_gain / avg_loss
+
     rsi = 100 - (100 / (1 + rs))
-    return rsi.iloc[-1] if not rsi.empty else None
+
+    return rsi.iloc[-1]
+
 
 # ===== EMA TREND =====
-def calculate_ema_trend(df, fast=EMA_FAST, slow=EMA_SLOW):
-    if df is None or df.empty or len(df) < max(fast, slow):
-        return None
-    ema_fast = df["close"].ewm(span=fast, adjust=False).mean()
-    ema_slow = df["close"].ewm(span=slow, adjust=False).mean()
+def calculate_ema_trend(df):
+
+    ema_fast = df["close"].ewm(span=EMA_FAST, adjust=False).mean()
+    ema_slow = df["close"].ewm(span=EMA_SLOW, adjust=False).mean()
+
     if ema_fast.iloc[-1] > ema_slow.iloc[-1]:
         return "up"
+
     elif ema_fast.iloc[-1] < ema_slow.iloc[-1]:
         return "down"
-    else:
-        return "flat"
+
+    return "flat"
+
 
 # ===== ATR =====
 def calculate_atr(df, period=14):
-    if df is None or df.empty or len(df) < period:
-        return None
+
     high_low = df["high"] - df["low"]
     high_close = np.abs(df["high"] - df["close"].shift())
     low_close = np.abs(df["low"] - df["close"].shift())
-    tr = pd.DataFrame({"hl": high_low, "hc": high_close, "lc": low_close}).max(axis=1)
+
+    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+
     atr = tr.rolling(period).mean()
-    return atr.iloc[-1] if not atr.empty else None
+
+    return atr.iloc[-1]
+
 
 # ===== VOLUME SPIKE =====
-def detect_volume_spike(df, multiplier=VOLUME_MULTIPLIER):
-    if df is None or df.empty:
-        return False
-    avg_volume = df["volume"].rolling(20).mean()
-    current_volume = df["volume"].iloc[-1]
-    if pd.isna(avg_volume.iloc[-1]):
-        return False
-    return current_volume > (avg_volume.iloc[-1] * multiplier)
+def detect_volume_spike(df):
 
-# ===== CALCULATE SIGNAL =====
-def calculate_signal(symbol, last_price, change_pct, df, daily_volume, df_higher_tf=None):
-    if df is None or df.empty or daily_volume < MIN_DAILY_VOLUME:
-        print(f"{symbol} skipped: insufficient data or low volume ({daily_volume})")
+    avg_volume = df["volume"].rolling(20).mean()
+
+    current_volume = df["volume"].iloc[-1]
+
+    return current_volume > avg_volume.iloc[-1] * VOLUME_MULTIPLIER
+
+
+# ===== SIGNAL ENGINE =====
+def calculate_signal(symbol, last_price, change_pct, df, daily_volume):
+
+    if df is None or daily_volume < MIN_DAILY_VOLUME:
         return None
 
     rsi = calculate_rsi(df)
-    ema_trend_val = calculate_ema_trend(df)
-    vol_spike = detect_volume_spike(df)
-    atr = calculate_atr(df)
+    trend = calculate_ema_trend(df)
+    volume_spike = detect_volume_spike(df)
 
-    # Debug print
-    print(f"{symbol} -> RSI: {rsi}, Trend: {ema_trend_val}, Volume Spike: {vol_spike}, Change: {change_pct:.4f}, Volume: {daily_volume}")
+    # ATR from higher timeframe
+    df_1h = get_klines(symbol, "1h", 200)
 
-    # Signal logic
+    atr = calculate_atr(df_1h)
+
+    if atr is None:
+        atr = last_price * 0.01
+
+    # Prevent tiny TP/SL
+    atr = max(atr, last_price * MIN_MOVE_PERCENT)
+
+    print(f"{symbol} -> RSI:{rsi} Trend:{trend} VolSpike:{volume_spike} Change:{change_pct}")
+
     trade_type = None
-    if change_pct > PRICE_MOVE_THRESHOLD and ema_trend_val == "up" and (rsi is None or rsi < RSI_LONG_MAX) and vol_spike:
+
+    if change_pct > PRICE_MOVE_THRESHOLD and trend == "up" and volume_spike:
         trade_type = "LONG"
-    elif change_pct < -PRICE_MOVE_THRESHOLD and ema_trend_val == "down" and (rsi is None or rsi > RSI_SHORT_MIN) and vol_spike:
+
+    elif change_pct < -PRICE_MOVE_THRESHOLD and trend == "down" and volume_spike:
         trade_type = "SHORT"
 
     if not trade_type:
         return None
 
-    if atr is None:
-        atr = last_price * 0.01
+
+    entry = last_price
 
     if trade_type == "LONG":
-        entry = last_price
+
         sl = entry - atr * ATR_MULTIPLIER
+
         tp1 = entry + atr * ATR_MULTIPLIER
         tp2 = entry + atr * ATR_MULTIPLIER * 2
         tp3 = entry + atr * ATR_MULTIPLIER * 3
+
     else:
-        entry = last_price
+
         sl = entry + atr * ATR_MULTIPLIER
+
         tp1 = entry - atr * ATR_MULTIPLIER
         tp2 = entry - atr * ATR_MULTIPLIER * 2
         tp3 = entry - atr * ATR_MULTIPLIER * 3
 
-    confidence = int(abs(change_pct)*100) + (20 if vol_spike else 0)
+
+    confidence = int(abs(change_pct) * 100)
+
+    if volume_spike:
+        confidence += 20
+
     confidence = min(confidence, 100)
+
     if confidence < CONFIDENCE_THRESHOLD:
         return None
+
 
     return {
         "coin": symbol.replace("USDT",""),
@@ -140,7 +183,7 @@ def calculate_signal(symbol, last_price, change_pct, df, daily_volume, df_higher
         "trade_type": trade_type,
         "confidence": confidence,
         "rsi": rsi,
-        "ema_trend": ema_trend_val,
-        "volume_spike": vol_spike,
+        "ema_trend": trend,
+        "volume_spike": volume_spike,
         "atr": atr
     }
