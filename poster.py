@@ -1,6 +1,6 @@
 def generate_post(coin):
 
-    return f"""
+    message = f"""
 Guys! ${coin} created another bullish movement
 
 People lie but chart don’t
@@ -9,3 +9,5 @@ People lie but chart don’t
 
 — Follow for more real updates —
 """
+
+    return message
