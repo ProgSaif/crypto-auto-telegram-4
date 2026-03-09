@@ -7,7 +7,8 @@ from signals import calculate_signal
 import mplfinance as mpf
 import os
 
-os.makedirs("charts", exist_ok=True)
+if not os.path.exists("charts"):
+    os.makedirs("charts")
 
 def get_market_data():
     url = "https://api.coingecko.com/api/v3/coins/markets"
