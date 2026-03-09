@@ -15,9 +15,9 @@ def get_market_data():
     params = {
         "vs_currency": "usd",
         "order": "market_cap_desc",
-        "per_page": 50,
+        "per_page": 200,
         "page": 1,
-        "price_change_percentage": "1h,24h"
+        "price_change_percentage": "0.01h,1h,24h"
     }
     try:
         response = requests.get(url, params=params, timeout=10)
