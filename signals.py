@@ -4,7 +4,7 @@ import pandas as pd
 import talib
 
 # --- Fetch candle data from Binance ---
-def get_klines(symbol, interval="5m", limit=100):
+def get_klines(symbol, interval="5m", limit=50):
     url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}"
     try:
         resp = requests.get(url, timeout=10).json()
@@ -24,7 +24,7 @@ def get_klines(symbol, interval="5m", limit=100):
 def calculate_atr(df, period=14):
     return talib.ATR(df["high"], df["low"], df["close"], timeperiod=period)
 
-# --- Calculate signals ---
+# --- Calculate high-quality signals ---
 def calculate_signal(symbol):
     df = get_klines(symbol, interval="5m", limit=50)
     if df is None or len(df) < 20:
@@ -81,15 +81,23 @@ def calculate_signal(symbol):
         "confidence": confidence
     }
 
-# --- Top USDT coins ---
-TOP_COINS = [
-    "BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","ADAUSDT",
-    "XRPUSDT","DOGEUSDT","LTCUSDT","AVAXUSDT","DOTUSDT"
-]
+# --- Fetch all USDT trading symbols dynamically ---
+def get_all_usdt_symbols():
+    url = "https://api.binance.com/api/v3/exchangeInfo"
+    try:
+        data = requests.get(url, timeout=10).json()
+        symbols = [s["symbol"] for s in data.get("symbols", [])
+                   if s["quoteAsset"]=="USDT" and s["status"]=="TRADING"]
+        return symbols
+    except Exception as e:
+        print("Failed to fetch USDT symbols:", e)
+        return []
 
+# --- Generate signals for all USDT coins ---
 def get_signals():
     signals = []
-    for sym in TOP_COINS:
+    all_symbols = get_all_usdt_symbols()
+    for sym in all_symbols:
         s = calculate_signal(sym)
         if s:
             signals.append(s)
