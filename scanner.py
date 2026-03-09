@@ -44,12 +44,15 @@ def scan_market():
                     continue
 
                 signal = calculate_signal(
+                    print(symbol, "RSI:", rsi, "Trend:", trend, "VolumeSpike:", vol_spike)
                     symbol,
                     last_price,
                     change_pct,
                     df,
                     volume,
                     df_htf
+
+                    
                 )
 
                 if signal:
