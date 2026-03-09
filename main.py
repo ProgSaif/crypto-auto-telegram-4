@@ -8,31 +8,45 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
 
 bot = Bot(token=BOT_TOKEN)
+
 posted = set()
 
-
 async def send_message_safe(message):
-    for i in range(3):
+    for i in range(5):
         try:
             await bot.send_message(
                 chat_id=CHANNEL_ID,
                 text=message
             )
             return
+
         except Exception as e:
             print("Telegram error:", e)
-            await asyncio.sleep(5)
 
+            # Handle flood control
+            if "Retry in" in str(e):
+                try:
+                    wait = int(str(e).split("Retry in ")[1].split(" ")[0])
+                except:
+                    wait = 15
+
+                print(f"Flood control triggered. Waiting {wait} seconds...")
+                await asyncio.sleep(wait)
+
+            else:
+                await asyncio.sleep(5)
 
 async def run_bot():
     print("🚀 Signal bot started")
 
     while True:
         try:
-            signals = get_signal_coins()
+            # Limit signals to avoid Telegram flood
+            signals = get_signal_coins()[:5]
 
             for s in signals:
                 key = f"{s['coin']}_{s['trade_type']}"
+
                 if key not in posted:
                     message = generate_signal_message(
                         s["coin"],
@@ -44,15 +58,20 @@ async def run_bot():
                         s["trade_type"],
                         s["confidence"]
                     )
+
                     print("Posting:", s["coin"], s["trade_type"])
+
                     await send_message_safe(message)
+
                     posted.add(key)
-                    await asyncio.sleep(20)
+
+                    # Delay between messages to prevent flood
+                    await asyncio.sleep(10)
 
         except Exception as e:
             print("Bot error:", e)
 
+        # Wait before next scan
         await asyncio.sleep(30)
-
 
 asyncio.run(run_bot())
