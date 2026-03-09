@@ -6,7 +6,6 @@ def scan_market():
     Scan Binance market and return a list of eligible signals.
     Works for all USDT pairs.
     """
-
     url = "https://data-api.binance.vision/api/v3/ticker/24hr"
 
     try:
