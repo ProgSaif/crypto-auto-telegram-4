@@ -10,10 +10,9 @@ TP3: {tp3:.6f}
 
 Why this setup?
 • Confidence: {confidence}%
-• Price momentum detected, strong trend on 1H chart
+• Strong trend on 1H chart
 
 Please like and comment your PNL
-
 — Follow for more updates —
 DYOR 
 #{coin}
