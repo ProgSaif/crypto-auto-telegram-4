@@ -1,23 +1,24 @@
 def generate_signal_message(coin, entry, sl, tp1, tp2, tp3, trade_type="LONG", confidence=85):
-    return f""" ${coin} – {trade_type}
+    entry_low = entry * 0.995
+    entry_high = entry * 1.005
 
-Entry: {entry:.8f}
-SL: {sl:.8f}
-TP1: {tp1:.8f}
-TP2: {tp2:.8f}
-TP3: {tp3:.8f}
+    message = f"""
+Traders are watching the majors… but ${coin} just flashed momentum.
+${coin} — {trade_type}
 
-Please like and comment
-— Follow for more signal —
+Entry: {entry_low:.4f} – {entry_high:.4f}
+SL: {sl:.4f}
+TP1: {tp1:.4f}
+TP2: {tp2:.4f}
+TP3: {tp3:.4f}
 
 Why this setup?
-• Confidence: {confidence}%
-• Strong trend on 1H chart
-• RSI indicates {'oversold' if trade_type=='LONG' else 'overbought'} conditions
-• Momentum aligns with recent price breakout
-• ${coin} is actively traded with sufficient liquidity
+{coin} just broke out of its consolidation range with a strong {'bullish' if trade_type=='LONG' else 'bearish'} candle.
+Price reclaimed the {entry:.4f} level, showing {'buyers' if trade_type=='LONG' else 'sellers'} stepping back in after weeks of sideways action.
+If {'bulls' if trade_type=='LONG' else 'bears'} hold above {entry_low:.4f}, the next liquidity sits around {tp1:.4f}+.
+The real question:
+Is this the start of a bigger breakout… or just the first liquidity grab? 👀
 
-
-DYOR 
-#{coin}
+Trade ${coin} here 👇
 """
+    return message
