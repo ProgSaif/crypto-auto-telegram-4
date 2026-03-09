@@ -2,11 +2,11 @@ def generate_signal_message(signal):
     return f"""
 ${signal['coin']} – {signal['trade_type']}
 
-Entry: {signal['entry']:.7f}
-SL: {signal['sl']:.7f}
-TP1: {signal['tp1']:.6f}
-TP2: {signal['tp2']:.5f}
-TP3: {signal['tp3']:.5f}
+Entry: {signal['entry']:.2f}
+SL: {signal['sl']:.2f}
+TP1: {signal['tp1']:.2f}
+TP2: {signal['tp2']:.2f}
+TP3: {signal['tp3']:.2f}
 
 Why this setup?
 • Confidence: {signal['confidence']}%
@@ -14,5 +14,4 @@ Why this setup?
 • Volume spike: {'Yes' if signal['volume_spike'] else 'No'}
 
 — Follow for more real updates —
-DYOR
 """
