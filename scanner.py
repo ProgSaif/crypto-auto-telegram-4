@@ -5,7 +5,12 @@ def get_signal_coins():
     url = "https://data-api.binance.vision/api/v3/ticker/24hr"
 
     try:
-        response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+        response = requests.get(
+            url,
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=10
+        )
+
         data = response.json()
 
         signals = []
@@ -15,21 +20,28 @@ def get_signal_coins():
             return []
 
         for item in data:
+
             symbol = item.get("symbol", "")
+
             if symbol.endswith("USDT"):
+
                 change = float(item.get("priceChangePercent", 0))
                 last_price = float(item.get("lastPrice", 0))
 
-                # ✅ Standard 1% threshold
+                # LONG signal
                 if change > 1:
+
                     entry = last_price
                     sl = entry * 0.98
                     tp1 = entry * 1.02
                     tp2 = entry * 1.04
                     tp3 = entry * 1.06
+
                     trade_type = "LONG"
-                    confidence = int(change * 10)
+                    confidence = min(int(change * 10), 95)
+
                     coin = symbol.replace("USDT", "")
+
                     signals.append({
                         "coin": coin,
                         "entry": entry,
@@ -41,15 +53,20 @@ def get_signal_coins():
                         "confidence": confidence
                     })
 
+                # SHORT signal
                 elif change < -1:
+
                     entry = last_price
                     sl = entry * 1.02
                     tp1 = entry * 0.98
                     tp2 = entry * 0.96
                     tp3 = entry * 0.94
+
                     trade_type = "SHORT"
-                    confidence = int(-change * 10)
+                    confidence = min(int(abs(change) * 10), 95)
+
                     coin = symbol.replace("USDT", "")
+
                     signals.append({
                         "coin": coin,
                         "entry": entry,
@@ -62,6 +79,7 @@ def get_signal_coins():
                     })
 
         print("Detected signals:", [s["coin"] for s in signals])
+
         return signals
 
     except Exception as e:
