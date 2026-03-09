@@ -16,7 +16,7 @@ def get_market_data():
         "order": "market_cap_desc",
         "per_page": 50,
         "page": 1,
-        "price_change_percentage": "24h"
+        "price_change_percentage": "1h,24h"
     }
     try:
         response = requests.get(url, params=params, timeout=10)
@@ -54,7 +54,7 @@ def detect_signals():
 
     for coin in market_data:
         if not isinstance(coin, dict):
-            continue  # skip invalid entries
+            continue
         coin_id = coin.get('id')
         symbol = coin.get('symbol', '').upper()
         last_price = coin.get('current_price', 0)
@@ -79,6 +79,7 @@ def detect_signals():
         avg_vol = df['volume'].rolling(20).mean().iloc[-1]
         vol_spike = df['volume'].iloc[-1] > avg_vol * 1.5
 
+        # Calculate signal
         signal = calculate_signal(symbol, last_price, change_pct, rsi, ema_trend, vol_spike)
         if signal:
             chart_file = f"charts/{symbol}.png"
@@ -90,5 +91,8 @@ def detect_signals():
                 chart_file = None
             signal['chart_file'] = chart_file
             signals.append(signal)
+
+        # Debug log
+        print(f"Scanned {symbol}: price={last_price}, change={change_pct:.2f}%, RSI={rsi:.2f}, EMA={ema_trend}, VolSpike={vol_spike}")
 
     return signals
